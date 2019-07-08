@@ -27,6 +27,7 @@ export CAM_MOUNT=/mnt/cam
 export MUSIC_MOUNT=/mnt/music
 export ARCHIVE_MOUNT=/mnt/archive
 export MUSIC_ARCHIVE_MOUNT=/mnt/musicarchive
+export BACKINGFILES_MOUNTPOINT=/backingfiles
 
 function log () {
   echo -n "$( date ): " >> "$LOG_FILE"
@@ -131,6 +132,17 @@ function mount_mountpoint () {
     return
   else
     log "Failed to mount $mount_point."
+    false
+    return
+  fi
+}
+
+function has_music_partition () {
+  if [ -e $BACKINGFILES_MOUNTPOINT/music_disk.bin ]
+  then
+    true
+    return
+  else
     false
     return
   fi
@@ -245,7 +257,11 @@ function mount_and_fix_errors_in_music_file () {
 
 function mount_and_fix_errors_in_files () {
   mount_and_fix_errors_in_cam_file
-  mount_and_fix_errors_in_music_file
+
+  if has_music_partition
+  then
+    mount_and_fix_errors_in_music_file
+  fi
 }
 
 function disconnect_usb_drives_from_host () {
@@ -299,7 +315,7 @@ function archive_clips () {
     log "Archiving failed."
   fi
 
-  if timeout 5 [ -d "$MUSIC_ARCHIVE_MOUNT" -a -d "$MUSIC_MOUNT" ]
+  if timeout 5 [ -d "$MUSIC_ARCHIVE_MOUNT" -a -d "$MUSIC_MOUNT" -a $(has_music_partition; echo $?) -eq 0 ]
   then
     log "Copying music..."
     if copy_music_files
@@ -360,7 +376,10 @@ then
   fastblink
 
   # archive_clips will fix errors in the cam file
-  mount_and_fix_errors_in_music_file
+  if has_music_partition
+  then
+    mount_and_fix_errors_in_music_file
+  fi
 
   archive_clips
 
